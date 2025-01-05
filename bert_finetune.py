@@ -53,24 +53,12 @@ df_test = pd.read_csv(config.PARAM3)
 sw = stopwords.words('english')
 
 def clean_text(text):
-    
-    text = text.lower()
-    
-    text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text) # replacing everything with space except (a-z, A-Z, ".", "?", "!", ",")
-
+    text = text.lower() # because using bert-base-uncased
     text = re.sub(r"http\S+", "",text) #Removing URLs 
-    #text = re.sub(r"http", "",text)
-    
+    text = re.sub(r"[^a-zA-Z?.!,¿$]+", " ", text) #Removing special characters
     html=re.compile(r'<.*?>') 
-    
     text = html.sub(r'',text) #Removing html tags
-    
-    punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
-    for p in punctuations:
-        text = text.replace(p,'') #Removing punctuations
-        
-    text = [word.lower() for word in text.split() if word.lower() not in sw]
-    
+    text = [word for word in text.split() if word not in sw]
     text = " ".join(text) #removing stopwords
     return text
 
@@ -84,6 +72,8 @@ print(df_training['label'].value_counts(normalize = True))
 train_text, val_text, train_labels, val_labels = train_test_split(df_training['text'], df_training['label'],random_state=2018,test_size=config.PARAM4,stratify=df_training['label'])
 # prepare test set
 test_text = df_test['text']  # Features (email text)
+
+test_text = test_text.astype('str')
 test_labels = df_test['label']  # Labels (e.g., ham/spam or 0/1)
 
 # import BERT-base pretrained model
@@ -107,8 +97,12 @@ cutoff_frequency = total_frequency * 0.9
 bin_index = np.searchsorted(cumulative_frequency, cutoff_frequency)
 
 # Return the upper edge of the bin covering the specified percentage
-max_seq_len = int(bin_edges[bin_index + 1])
+if int(bin_index)+1 > 512:
+    max_seq_len = 512
+else:
+   max_seq_len = int(bin_edges[bin_index + 1])
 
+print(max_seq_len)
 
 # tokenize and encode sequences in the training set
 tokens_train = tokenizer.batch_encode_plus(
