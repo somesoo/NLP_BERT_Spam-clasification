@@ -10,5 +10,7 @@ PARAM3 = "500_test_dataset.csv"
 # this is variable for spliting training dataset into train and validation
 # test data set is already spited to other file
 PARAM4 = 0.2
+# numers of epochs
+PARAM5 = 10
 # batch_size
 PARAM7 = 16
