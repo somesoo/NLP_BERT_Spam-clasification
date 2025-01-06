@@ -39,9 +39,6 @@ else:
     device = "cuda:0" 
 print(device)
 
-# This part is responsible for importing and preparing data
-df_training = pd.read_csv(config.PARAM2)
-df_test = pd.read_csv(config.PARAM3)
 
 sw = stopwords.words('english')
 
@@ -56,126 +53,19 @@ def clean_text(text, clean_stopwords):
     text = " ".join(text) #removing stopwords
     return text
 
-df_training['text'] = df_training['text'].astype('str')
-df_training['text'] = df_training['text'].apply(lambda x: clean_text(x, config.PARAM6))
 
-# check class distribution
-print(df_training['label'].value_counts(normalize = True))
+def import_data():
+    # This part is responsible for importing and preparing data
+    df_training = pd.read_csv(config.PARAM2)
+    df_test = pd.read_csv(config.PARAM3)
 
-# prepare training set and validation set
-train_text, val_text, train_labels, val_labels = train_test_split(
-    df_training['text'], 
-    df_training['label'],
-    random_state=2018,
-    test_size=config.PARAM4,
-    stratify=df_training['label'])
+    df_training['text'] = df_training['text'].astype('str')
+    df_training['text'] = df_training['text'].apply(lambda x: clean_text(x, config.PARAM6))
 
-# prepare test set
-test_text = df_test['text']  # Features (email text)
-test_text = test_text.astype('str')
-test_labels = df_test['label']  # Labels (e.g., ham/spam or 0/1)
+    # check class distribution
+    print(df_training['label'].value_counts(normalize = True))
+    return df_training, df_test
 
-# import BERT-base pretrained model
-bert = AutoModel.from_pretrained('bert-base-uncased')
-# Load the BERT tokenizer
-tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-# get length of all the messages in the train set
-seq_len = [len(i.split()) for i in train_text]
-hist, bin_edges = np.histogram(seq_len, bins=len(seq_len))
-hist_table = pd.DataFrame({'Message lenght': [f"{int(bin_edges[i])} - {int(bin_edges[i+1])}" for i in range(len(bin_edges)-1)],'Frequency': hist})
-cumulative_frequency = np.cumsum(hist)
-# Total frequency
-total_frequency = cumulative_frequency[-1]
-# Find the bin edge that covers the desired percentage
-cutoff_frequency = total_frequency * 0.9
-bin_index = np.searchsorted(cumulative_frequency, cutoff_frequency)
-
-# Return the upper edge of the bin covering the specified percentage
-if int(bin_index)+1 > 512:
-    max_seq_len = 512
-else:
-   max_seq_len = int(bin_edges[bin_index + 1])
-print(max_seq_len)
-
-# tokenize and encode sequences in the training set
-tokens_train = tokenizer.batch_encode_plus(
-    train_text.tolist(),
-    max_length = max_seq_len,
-    padding="max_length",
-    truncation=True,
-    return_token_type_ids=False
-)
-
-# tokenize and encode sequences in the validation set
-tokens_val = tokenizer.batch_encode_plus(
-    val_text.tolist(),
-    max_length = max_seq_len,
-    padding="max_length",
-    truncation=True,
-    return_token_type_ids=False
-)
-
-# tokenize and encode sequences in the test set
-tokens_test = tokenizer.batch_encode_plus(
-   test_text.tolist(),
-   max_length = max_seq_len,
-   padding="max_length",
-   truncation=True,
-   return_token_type_ids=False
-)
-
-# for train set
-train_seq = torch.tensor(tokens_train['input_ids'])
-train_mask = torch.tensor(tokens_train['attention_mask'])
-train_y = torch.tensor(train_labels.tolist())
-
-# for validation set
-val_seq = torch.tensor(tokens_val['input_ids'])
-val_mask = torch.tensor(tokens_val['attention_mask'])
-val_y = torch.tensor(val_labels.tolist())
-
-# for test set
-test_seq = torch.tensor(tokens_test['input_ids'])
-test_mask = torch.tensor(tokens_test['attention_mask'])
-test_y = torch.tensor(test_labels.tolist())
-
-#define a batch size
-batch_size = config.PARAM7
-# wrap tensors
-train_data = TensorDataset(train_seq, train_mask, train_y)
-# sampler for sampling the data during training
-train_sampler = RandomSampler(train_data)
-# dataLoader for train set
-train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size)
-# wrap tensors
-val_data = TensorDataset(val_seq, val_mask, val_y)
-# sampler for sampling the data during training
-val_sampler = SequentialSampler(val_data)
-# dataLoader for validation set
-val_dataloader = DataLoader(val_data, sampler = val_sampler, batch_size=batch_size)
-
-# freeze all the parameters
-for param in bert.parameters():
-    param.requires_grad = False
-
-
-# pass the pre-trained BERT to our define architecture
-model = BERT_Arch(bert)
-# push the model to GPU or CPU as selected in the begining
-model = model.to(device)
-# define the optimizer
-optimizer = AdamW(model.parameters(), lr = 1e-3)
-
-class_wts = compute_class_weight('balanced', classes=np.unique(train_labels), y=train_labels)
-print(class_wts)
-
-# convert class weights to tensor
-weights= torch.tensor(class_wts,dtype=torch.float)
-weights = weights.to(device)
-# loss function
-cross_entropy  = nn.NLLLoss(weight=weights)
-# number of training epochs
-epochs = config.PARAM5
 
 def format_time(seconds):
     """Convert seconds into a formatted string (e.g., HH:MM:SS)."""
@@ -183,11 +73,10 @@ def format_time(seconds):
     hours, mins = divmod(mins, 60)
     return f"{int(hours):02}:{int(mins):02}:{int(secs):02}"
 
+
 # function for evaluating the model
-def evaluate():
-
+def evaluate(model, val_dataloader, cross_entropy):
   print("\nEvaluating...")
-
   # deactivate dropout layers
   model.eval()
   total_loss, total_accuracy = 0, 0
@@ -222,8 +111,9 @@ def evaluate():
   total_preds  = np.concatenate(total_preds, axis=0)
   return avg_loss, total_preds
 
+
 # function to train the model
-def train():
+def train(model, train_dataloader, optimizer, cross_entropy):
   model.train()
   total_loss, total_accuracy = 0, 0
   # empty list to save model predictions
@@ -262,44 +152,159 @@ def train():
   #returns the loss and predictions
   return avg_loss, total_preds
 
-# set initial loss to infinite
-best_valid_loss = float('inf')
-# empty lists to store training and validation loss of each epoch
-train_losses=[]
-valid_losses=[]
 
-if config.PARAM10:
-    #for each epoch
-    for epoch in range(epochs):
+def main():
 
-        print('\n Epoch {:} / {:}'.format(epoch + 1, epochs))
-        #train model
-        train_loss, _ = train()
-        #evaluate model
-        valid_loss, _ = evaluate()
-        #save the best model
-        if valid_loss < best_valid_loss:
-            best_valid_loss = valid_loss
-            torch.save(model.state_dict(), 'saved_weights.pt')
-        # append training and validation loss
-        train_losses.append(train_loss)
-        valid_losses.append(valid_loss)
-        print(f'\nTraining Loss: {train_loss:.3f}')
-        print(f'Validation Loss: {valid_loss:.3f}')
+    df_training, df_test = import_data()
+    # prepare training set and validation set
+    train_text, val_text, train_labels, val_labels = train_test_split(
+        df_training['text'], 
+        df_training['label'],
+        random_state=2018,
+        test_size=config.PARAM4,
+        stratify=df_training['label'])
+    # prepare test set
+    test_text = df_test['text']  # Features (email text)
+    test_text = test_text.astype('str')
+    test_labels = df_test['label']  # Labels (e.g., ham/spam or 0/1)
 
 
-if config.PARAM11:
-    #load weights of best model
-    path = 'saved_weights.pt'
-    model.load_state_dict(torch.load(path))
-    # get predictions for test data
-    with torch.no_grad():
-        preds = model(test_seq.to(device), test_mask.to(device))
-        preds = preds.detach().cpu().numpy()
+    # import BERT-base pretrained model
+    bert = AutoModel.from_pretrained('bert-base-uncased')
+    # Load the BERT tokenizer
+    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
 
-    # model's performance
-    preds = np.argmax(preds, axis = 1)
-    print(classification_report(test_y, preds))
 
-    # confusion matrix
-    pd.crosstab(test_y, preds)
+    # get length of all the messages in the train set
+    seq_len = [len(i.split()) for i in train_text]
+    hist, bin_edges = np.histogram(seq_len, bins=len(seq_len))
+    hist_table = pd.DataFrame({'Message lenght': [f"{int(bin_edges[i])} - {int(bin_edges[i+1])}" for i in range(len(bin_edges)-1)],'Frequency': hist})
+    cumulative_frequency = np.cumsum(hist)
+    # Total frequency
+    total_frequency = cumulative_frequency[-1]
+    # Find the bin edge that covers the desired percentage
+    cutoff_frequency = total_frequency * 0.9
+    bin_index = np.searchsorted(cumulative_frequency, cutoff_frequency)
+    # Return the upper edge of the bin covering the specified percentage
+    if int(bin_index)+1 > 512:
+        max_seq_len = 512
+    else:
+        max_seq_len = int(bin_edges[bin_index + 1])
+    print(max_seq_len)
+
+
+    # tokenize and encode sequences in the training set
+    tokens_train = tokenizer.batch_encode_plus(
+        train_text.tolist(),
+        max_length = max_seq_len,
+        padding="max_length",
+        truncation=True,
+        return_token_type_ids=False
+    )
+    # tokenize and encode sequences in the validation set
+    tokens_val = tokenizer.batch_encode_plus(
+        val_text.tolist(),
+        max_length = max_seq_len,
+        padding="max_length",
+        truncation=True,
+        return_token_type_ids=False
+    )
+    # tokenize and encode sequences in the test set
+    tokens_test = tokenizer.batch_encode_plus(
+    test_text.tolist(),
+    max_length = max_seq_len,
+    padding="max_length",
+    truncation=True,
+    return_token_type_ids=False
+    )
+    # for train set
+    train_seq = torch.tensor(tokens_train['input_ids'])
+    train_mask = torch.tensor(tokens_train['attention_mask'])
+    train_y = torch.tensor(train_labels.tolist())
+    # for validation set
+    val_seq = torch.tensor(tokens_val['input_ids'])
+    val_mask = torch.tensor(tokens_val['attention_mask'])
+    val_y = torch.tensor(val_labels.tolist())
+    # for test set
+    test_seq = torch.tensor(tokens_test['input_ids'])
+    test_mask = torch.tensor(tokens_test['attention_mask'])
+    test_y = torch.tensor(test_labels.tolist())
+
+
+    #define a batch size
+    batch_size = config.PARAM7
+    # wrap tensors
+    train_data = TensorDataset(train_seq, train_mask, train_y)
+    # sampler for sampling the data during training
+    train_sampler = RandomSampler(train_data)
+    # dataLoader for train set
+    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size)
+    # wrap tensors
+    val_data = TensorDataset(val_seq, val_mask, val_y)
+    # sampler for sampling the data during training
+    val_sampler = SequentialSampler(val_data)
+    # dataLoader for validation set
+    val_dataloader = DataLoader(val_data, sampler = val_sampler, batch_size=batch_size)
+
+    # freeze all the parameters
+    for param in bert.parameters():
+        param.requires_grad = False
+
+
+    # pass the pre-trained BERT to our define architecture
+    model = BERT_Arch(bert)
+    # push the model to GPU or CPU as selected in the begining
+    model = model.to(device)
+    # define the optimizer
+    optimizer = AdamW(model.parameters(), lr = 1e-5)
+    class_wts = compute_class_weight('balanced', classes=np.unique(train_labels), y=train_labels)
+    print(class_wts)
+    # convert class weights to tensor
+    weights= torch.tensor(class_wts,dtype=torch.float)
+    weights = weights.to(device)
+    # loss function
+    cross_entropy  = nn.NLLLoss(weight=weights)
+    # number of training epochs
+    epochs = config.PARAM5
+
+    # set initial loss to infinite
+    best_valid_loss = float('inf')
+    # empty lists to store training and validation loss of each epoch
+    train_losses=[]
+    valid_losses=[]
+
+# TRAIN MODEL
+    if config.PARAM10:
+        #for each epoch
+        for epoch in range(epochs):
+
+            print('\n Epoch {:} / {:}'.format(epoch + 1, epochs))
+            train_loss, _ = train(model, train_dataloader, optimizer, cross_entropy) #train model
+            valid_loss, _ = evaluate(model, val_dataloader, cross_entropy) #evaluate model
+            #save the best model
+            if valid_loss < best_valid_loss:
+                best_valid_loss = valid_loss
+                torch.save(model.state_dict(), 'saved_weights.pt')
+            # append training and validation loss
+            train_losses.append(train_loss)
+            valid_losses.append(valid_loss)
+            print(f'\nTraining Loss: {train_loss:.3f}')
+            print(f'Validation Loss: {valid_loss:.3f}')
+# TEST MODEL
+    if config.PARAM11:
+        #load weights of best model
+        path = 'saved_weights.pt'
+        model.load_state_dict(torch.load(path))
+        # get predictions for test data
+        with torch.no_grad():
+            preds = model(test_seq.to(device), test_mask.to(device))
+            preds = preds.detach().cpu().numpy()
+
+        # model's performance
+        preds = np.argmax(preds, axis = 1)
+        print(classification_report(test_y, preds))
+
+        # confusion matrix
+        pd.crosstab(test_y, preds)
+
+
