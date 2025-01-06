@@ -1,6 +1,4 @@
 # Parameters
-
-
 # run_on_cpu
 PARAM1 = "true"
 # training dataset
@@ -11,6 +9,8 @@ PARAM3 = "500_test_dataset.csv"
 # test data set is already spited to other file
 PARAM4 = 0.2
 # numers of epochs
-PARAM5 = 10
+PARAM5 = 2
+# clean stopwords
+PARAM6= 1
 # batch_size
 PARAM7 = 16

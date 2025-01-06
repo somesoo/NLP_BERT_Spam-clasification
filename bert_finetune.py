@@ -52,18 +52,19 @@ df_test = pd.read_csv(config.PARAM3)
 
 sw = stopwords.words('english')
 
-def clean_text(text):
+def clean_text(text, clean_stopwords):
     text = text.lower() # because using bert-base-uncased
     text = re.sub(r"http\S+", "",text) #Removing URLs 
     text = re.sub(r"[^a-zA-Z?.!,¿$]+", " ", text) #Removing special characters
     html=re.compile(r'<.*?>') 
     text = html.sub(r'',text) #Removing html tags
-    text = [word for word in text.split() if word not in sw]
+    if clean_stopwords:
+        text = [word for word in text.split() if word not in sw]
     text = " ".join(text) #removing stopwords
     return text
 
 df_training['text'] = df_training['text'].astype('str')
-df_training['text'] = df_training['text'].apply(lambda x: clean_text(x))
+df_training['text'] = df_training['text'].apply(lambda x: clean_text(x, config.PARAM6))
 
 # check class distribution
 print(df_training['label'].value_counts(normalize = True))
