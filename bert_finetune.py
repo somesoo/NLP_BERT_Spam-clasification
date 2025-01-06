@@ -36,10 +36,11 @@ nltk.download('stopwords')
 from nltk.corpus import stopwords
 
 
-if (config.PARAM1):
+if (config.PARAM1 == "true"):
     device = torch.device("cpu")
 else:
-    "cuda:0" if torch.cuda.is_available() else torch.device("cpu")
+    device = "cuda:0" 
+#if torch.cuda.is_available() else torch.device("cpu")
 
 print(device)
 
@@ -70,10 +71,15 @@ df_training['text'] = df_training['text'].apply(lambda x: clean_text(x, config.P
 print(df_training['label'].value_counts(normalize = True))
 
 # prepare training set and validation set
-train_text, val_text, train_labels, val_labels = train_test_split(df_training['text'], df_training['label'],random_state=2018,test_size=config.PARAM4,stratify=df_training['label'])
+train_text, val_text, train_labels, val_labels = train_test_split(
+    df_training['text'], 
+    df_training['label'],
+    random_state=2018,
+    test_size=config.PARAM4,
+    stratify=df_training['label'])
+
 # prepare test set
 test_text = df_test['text']  # Features (email text)
-
 test_text = test_text.astype('str')
 test_labels = df_test['label']  # Labels (e.g., ham/spam or 0/1)
 
@@ -318,41 +324,43 @@ best_valid_loss = float('inf')
 train_losses=[]
 valid_losses=[]
 
-#for each epoch
-for epoch in range(epochs):
+if config.PARAM10:
+    #for each epoch
+    for epoch in range(epochs):
 
-    print('\n Epoch {:} / {:}'.format(epoch + 1, epochs))
+        print('\n Epoch {:} / {:}'.format(epoch + 1, epochs))
 
-    #train model
-    train_loss, _ = train()
+        #train model
+        train_loss, _ = train()
 
-    #evaluate model
-    valid_loss, _ = evaluate()
+        #evaluate model
+        valid_loss, _ = evaluate()
 
-    #save the best model
-    if valid_loss < best_valid_loss:
-        best_valid_loss = valid_loss
-        torch.save(model.state_dict(), 'saved_weights.pt')
+        #save the best model
+        if valid_loss < best_valid_loss:
+            best_valid_loss = valid_loss
+            torch.save(model.state_dict(), 'saved_weights.pt')
 
-    # append training and validation loss
-    train_losses.append(train_loss)
-    valid_losses.append(valid_loss)
+        # append training and validation loss
+        train_losses.append(train_loss)
+        valid_losses.append(valid_loss)
 
-    print(f'\nTraining Loss: {train_loss:.3f}')
-    print(f'Validation Loss: {valid_loss:.3f}')
+        print(f'\nTraining Loss: {train_loss:.3f}')
+        print(f'Validation Loss: {valid_loss:.3f}')
 
 
-#load weights of best model
-path = 'saved_weights.pt'
-model.load_state_dict(torch.load(path))
-# get predictions for test data
-with torch.no_grad():
-    preds = model(test_seq.to(device), test_mask.to(device))
-    preds = preds.detach().cpu().numpy()
+if config.PARAM11:
+    #load weights of best model
+    path = 'saved_weights.pt'
+    model.load_state_dict(torch.load(path))
+    # get predictions for test data
+    with torch.no_grad():
+        preds = model(test_seq.to(device), test_mask.to(device))
+        preds = preds.detach().cpu().numpy()
 
-# model's performance
-preds = np.argmax(preds, axis = 1)
-print(classification_report(test_y, preds))
+    # model's performance
+    preds = np.argmax(preds, axis = 1)
+    print(classification_report(test_y, preds))
 
-# confusion matrix
-pd.crosstab(test_y, preds)
+    # confusion matrix
+    pd.crosstab(test_y, preds)
