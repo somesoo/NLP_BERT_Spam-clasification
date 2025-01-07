@@ -19,4 +19,4 @@ PARAM7 = 16
 # 1 = train, 0 = no train
 PARAM10 = 0
 # 1 = get predictons, 0 = don't get predictions
-PARAM11 = 1
+PARAM11 = 0

@@ -46,8 +46,13 @@ def clean_text(text, clean_stopwords):
     text = text.lower() # because using bert-base-uncased
     text = re.sub(r"http\S+", "",text) #Removing URLs 
     text = re.sub(r"[^a-zA-Z?.!,¿$]+", " ", text) #Removing special characters
-    html=re.compile(r'<.*?>') 
+    html = re.compile(r'<.*?>') 
     text = html.sub(r'',text) #Removing html tags
+    #remove punctuations
+    punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_' + "#"
+    for p in punctuations:
+        text = text.replace(p,'')
+    text = re.sub(r'[{}]'.format(re.escape(punctuations)), '', text)
     if clean_stopwords:
         text = [word for word in text.split() if word not in sw]
     text = " ".join(text) #removing stopwords
@@ -257,13 +262,13 @@ def main():
     model = model.to(device)
     # define the optimizer
     optimizer = AdamW(model.parameters(), lr = 1e-5)
-    class_wts = compute_class_weight('balanced', classes=np.unique(train_labels), y=train_labels)
-    print(class_wts)
+#    class_wts = compute_class_weight('balanced', classes=np.unique(train_labels), y=train_labels)
+#    print("Class wts ", class_wts)
     # convert class weights to tensor
-    weights= torch.tensor(class_wts,dtype=torch.float)
-    weights = weights.to(device)
+#    weights= torch.tensor(class_wts,dtype=torch.float)
+#    weights = weights.to(device)
     # loss function
-    cross_entropy  = nn.NLLLoss(weight=weights)
+#    cross_entropy  = nn.NLLLoss(weight=weights)
     # number of training epochs
     epochs = config.PARAM5
 
@@ -279,8 +284,8 @@ def main():
         for epoch in range(epochs):
 
             print('\n Epoch {:} / {:}'.format(epoch + 1, epochs))
-            train_loss, _ = train(model, train_dataloader, optimizer, cross_entropy) #train model
-            valid_loss, _ = evaluate(model, val_dataloader, cross_entropy) #evaluate model
+            train_loss, _ = train(model, train_dataloader, optimizer)#, cross_entropy) #train model
+            valid_loss, _ = evaluate(model, val_dataloader)#, cross_entropy) #evaluate model
             #save the best model
             if valid_loss < best_valid_loss:
                 best_valid_loss = valid_loss
