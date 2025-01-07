@@ -261,14 +261,14 @@ def main():
     # push the model to GPU or CPU as selected in the begining
     model = model.to(device)
     # define the optimizer
-    optimizer = AdamW(model.parameters(), lr = 1e-5)
-#    class_wts = compute_class_weight('balanced', classes=np.unique(train_labels), y=train_labels)
-#    print("Class wts ", class_wts)
+    optimizer = AdamW(model.parameters(), lr = 1e-3)
+    class_wts = compute_class_weight('balanced', classes=np.unique(train_labels), y=train_labels)
+    print("Class wts ", class_wts)
     # convert class weights to tensor
-#    weights= torch.tensor(class_wts,dtype=torch.float)
-#    weights = weights.to(device)
+    weights= torch.tensor(class_wts,dtype=torch.float)
+    weights = weights.to(device)
     # loss function
-#    cross_entropy  = nn.NLLLoss(weight=weights)
+    cross_entropy  = nn.NLLLoss(weight=weights)
     # number of training epochs
     epochs = config.PARAM5
 
@@ -284,8 +284,8 @@ def main():
         for epoch in range(epochs):
 
             print('\n Epoch {:} / {:}'.format(epoch + 1, epochs))
-            train_loss, _ = train(model, train_dataloader, optimizer)#, cross_entropy) #train model
-            valid_loss, _ = evaluate(model, val_dataloader)#, cross_entropy) #evaluate model
+            train_loss, _ = train(model, train_dataloader, optimizer, cross_entropy) #train model
+            valid_loss, _ = evaluate(model, val_dataloader, cross_entropy) #evaluate model
             #save the best model
             if valid_loss < best_valid_loss:
                 best_valid_loss = valid_loss

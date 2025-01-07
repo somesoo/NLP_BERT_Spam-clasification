@@ -11,9 +11,9 @@ class BERT_Arch(nn.Module):
       # relu activation function
       self.relu =  nn.ReLU()
       # dense layer 1
-      self.fc1 = nn.Linear(768,512)
+      self.fc1 = nn.Linear(768,128)
       # dense layer 2 (Output layer)
-      self.fc2 = nn.Linear(512,2)
+      self.fc2 = nn.Linear(128,2)
       #softmax activation function
       self.softmax = nn.LogSoftmax(dim=1)
 
