@@ -1,22 +1,9 @@
-# Parameters
-# run_on_cpu
-PARAM1 = "true"
-# training dataset
-PARAM2 = "7000_training_dataset.csv"
-# test dataset
-PARAM3 = "500_test_dataset.csv"
-# this is variable for spliting training dataset into train and validation
-# test data set is already spited to other file
-PARAM4 = 0.2
-# numers of epochs
-PARAM5 = 5
-# clean stopwords
-PARAM6= 1
-# batch_size
-PARAM7 = 16
-
-
-# 1 = train, 0 = no train
-PARAM10 = 0
-# 1 = get predictons, 0 = don't get predictions
-PARAM11 = 1
+training_percent = 0.8
+testing_percent = 0.2
+dataset_path = "Phishing_Email.csv"
+intended_device = "gpu" #cpu or gpu
+learning_rate = 4e-5
+rand_seed = 2025
+max_len = 80
+batch_size = 16
+epochs = 1

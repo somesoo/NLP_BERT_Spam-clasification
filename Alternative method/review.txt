@@ -1,0 +1,42 @@
+              precision    recall  f1-score   support
+
+           0       0.70      0.88      0.78       295
+           1       0.73      0.45      0.56       205
+
+    accuracy                           0.71       500
+   macro avg       0.71      0.67      0.67       500
+weighted avg       0.71      0.71      0.69       500
+
+
+
+1e-5
+batch 32
+epoch 4
+max len 386
+training loss 0.668
+validation loss 0.665
+              precision    recall  f1-score   support
+
+           0       0.62      0.94      0.75       295
+           1       0.65      0.18      0.28       205
+
+    accuracy                           0.62       500
+   macro avg       0.64      0.56      0.51       500
+weighted avg       0.63      0.62      0.55       500
+
+
+1e-3
+batch 16
+epoch 5 ( o jedna za duzo)
+max len 386
+training loss 0.375
+validation loss 0.302
+              precision    recall  f1-score   support
+
+           0       0.80      0.89      0.84       295
+           1       0.81      0.68      0.74       205
+
+    accuracy                           0.80       500
+   macro avg       0.81      0.78      0.79       500
+weighted avg       0.80      0.80      0.80       500
+
